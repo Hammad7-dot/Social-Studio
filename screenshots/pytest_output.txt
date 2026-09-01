@@ -1,7 +1,10 @@
-rootdir: /home/claude/flyrank-capstone-social-studio
+============================= test session starts =============================
+platform win32 -- Python 3.13.5, pytest-9.1.1, pluggy-1.5.0 -- D:\anaconda3\python.exe
+cachedir: .pytest_cache
+rootdir: D:\Download\New folder\flyrank-capstone-social-studio\flyrank-capstone-social-studio
 configfile: pytest.ini
 testpaths: tests
-plugins: anyio-4.14.2, asyncio-1.4.0
+plugins: anyio-4.7.0, langsmith-0.10.15, asyncio-1.4.0, cov-7.1.0
 asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
 collecting ... collected 46 items
 
@@ -50,6 +53,7 @@ tests/test_webhooks.py::test_missing_signature_rejected PASSED           [ 91%]
 tests/test_webhooks.py::test_tampered_body_rejected PASSED               [ 93%]
 tests/test_webhooks.py::test_valid_signature_promotes_to_published PASSED [ 95%]
 tests/test_webhooks.py::test_webhook_redelivery_is_idempotent PASSED     [ 97%]
-tests/test_webhooks.py::test_publish_alone_never_sets_published PASSED   [100%]
+tests/test_webhooks.py::test_publish_alone_never_sets_published PASSED   [100%]webhook delivery to http://127.0.0.1:1/webhook/social-delivery failed: 
 
-============================= 46 passed in 34.08s ==============================
+
+======================= 46 passed in 163.23s (0:02:43) ========================
