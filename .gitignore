@@ -11,3 +11,5 @@ artifacts/**/*.jpg
 *.log
 !.gitkeep
 tests/_tmp/
+data/*.db-shm
+data/*.db-wal
