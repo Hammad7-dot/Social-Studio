@@ -1,0 +1,120 @@
+# Machine-readable project descriptor for automated grading.
+name: social-studio
+version: "1.0.0"
+description: >-
+  Turns a blog post into platform-native social image variants and captions,
+  then publishes them idempotently to a mock social platform that simulates
+  timeouts, 429 rate limiting, and asynchronous signed delivery webhooks.
+language: python
+python_version: ">=3.11"
+license: MIT
+
+base_url: http://127.0.0.1:8000
+mock_platform_url: http://127.0.0.1:9000
+
+install:
+  - python3 -m venv .venv
+  - .venv/bin/pip install -r requirements.txt
+
+run:
+  app: .venv/bin/python -m uvicorn app.main:app --port 8000
+  mock_platform: .venv/bin/python -m uvicorn mock_platform.main:app --port 9000
+
+seed: |
+  curl -s -X POST http://127.0.0.1:8000/campaigns \
+    -H 'Content-Type: application/json' \
+    -d '{"title":"Why idempotency keys beat retry counters",
+         "body":"Every social API will eventually accept your post and then fail to tell you about it.",
+         "url":"https://example.com/blog/idempotency-keys"}'
+
+test: .venv/bin/python -m pytest -v
+demo: ./demo.sh
+
+health_check:
+  app: http://127.0.0.1:8000/health
+  mock_platform: http://127.0.0.1:9000/health
+
+endpoints:
+  - method: GET
+    path: /health
+    description: Liveness, registered platforms, dev-secret warning flag.
+  - method: POST
+    path: /campaigns
+    description: Create a campaign; renders image variants, writes captions, queues one social post per platform.
+    body: {title: string, body: string, url: string, source_image: "string|null", platforms: "list[string]|null"}
+  - method: GET
+    path: /campaigns/{campaign_id}
+    description: Campaign with all of its social posts.
+  - method: POST
+    path: /campaigns/{campaign_id}/publish
+    description: Publish every post in the campaign now. Idempotent.
+  - method: POST
+    path: /campaigns/{campaign_id}/schedule
+    description: Register a durable scheduled publish.
+    body: {run_at: "iso8601|null", delay_seconds: "number|null"}
+  - method: GET
+    path: /social-posts/{post_id}
+    description: State of a single social post.
+  - method: POST
+    path: /webhook/social-delivery
+    description: HMAC-SHA256 signed delivery callback. Requires X-Signature. Sole path to status=published.
+  - method: GET
+    path: /scheduler/jobs
+    description: Jobs currently present in the persistent APScheduler jobstore.
+
+mock_platform_endpoints:
+  - {method: POST, path: /oauth/token}
+  - {method: POST, path: "/platform/{platform}/publish"}
+  - {method: GET,  path: "/platform/{platform}/posts"}
+  - {method: POST, path: "/platform/{platform}/reset"}
+  - {method: POST, path: "/platform/{platform}/rate-limit"}
+  - {method: POST, path: "/platform/{platform}/simulate-timeout"}
+  - {method: POST, path: "/platform/{platform}/webhook-delay"}
+  - {method: GET,  path: "/platform/{platform}/state"}
+
+platforms:
+  instagram:
+    image: {width: 1080, height: 1080}
+    caption_max_chars: 2200
+    max_hashtags: 8
+    includes_url: false
+  x:
+    image: {width: 1600, height: 900}
+    caption_max_chars: 280
+    max_hashtags: 2
+    includes_url: true
+
+status_machine:
+  states: [queued, publishing, published, failed]
+  transitions:
+    - {from: queued, to: publishing, trigger: "publish call returned 2xx"}
+    - {from: publishing, to: published, trigger: "HMAC-verified delivery webhook"}
+    - {from: queued, to: failed, trigger: "permanent error or retries exhausted"}
+    - {from: publishing, to: failed, trigger: "permanent error or retries exhausted"}
+  note: >-
+    'published' is set exclusively by a verified webhook, never by the publish
+    HTTP response. Status only ever moves forward.
+
+env:
+  ENCRYPTION_KEY:   {required: false, default: "insecure dev key", description: "32-byte AES-256-GCM key, base64 or hex"}
+  WEBHOOK_SECRET:   {required: false, default: "dev-webhook-secret-change-me", description: "HMAC-SHA256 webhook secret"}
+  MOCK_PLATFORM_URL: {required: false, default: "http://127.0.0.1:9000"}
+  APP_BASE_URL:     {required: false, default: "http://127.0.0.1:8000"}
+  DATABASE_URL:     {required: false, default: "sqlite:///./data/social_studio.db"}
+  SCHEDULER_DB_URL: {required: false, default: "sqlite:///./data/scheduler.db"}
+  ARTIFACTS_DIR:    {required: false, default: "./artifacts"}
+  PUBLISH_TIMEOUT_SECONDS: {required: false, default: 5}
+  PUBLISH_MAX_RETRIES:     {required: false, default: 4}
+
+artifacts:
+  images: artifacts/{platform}/{campaign_id}_{platform}.png
+  evidence: EVIDENCE.md
+  design: docs/design.md
+  buildlog: BUILDLOG.md
+  test_output: screenshots/pytest_output.txt
+  demo_output: screenshots/demo_output.txt
+
+test_summary:
+  total: 46
+  passed: 46
+  failed: 0

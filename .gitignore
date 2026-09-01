@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/*.db
+data/*.db-journal
+data/*.sqlite
+artifacts/**/*.png
+artifacts/**/*.jpg
+.pytest_cache/
+*.log
+!.gitkeep
+tests/_tmp/
